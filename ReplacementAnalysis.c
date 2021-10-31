@@ -96,87 +96,142 @@ int LRU(int size, int data []) {
         int index = 0;                                                                  // start with index of 0 for which value is getting replaced
         int value = hasValue(data[i], set, size);                                       // determine if the value is already in the working set
         if (counter < size) { index = counter; }                                        // if still not full, just set the index to be replaced as the the iterator
-        else if (value != -1) { index = value; }                                        // 
-        else { index = getMinimumIndex(counters, size); faults++; }
+        else if (value != -1) { index = value; }                                        // if found in set, set index to that point
+        else { index = getMinimumIndex(counters, size); faults++; }                     // if not found, page fault, get the smallest count value and replace at that index
         
-        set[index] = data[i];
-        counters[index] = counter;
-        counter++;
+        set[index] = data[i];                                                           // replace value at calculated index with the data value
+        counters[index] = counter;                                                      // set the counter value at the index to the largest as of that moment (most recent)
+        counter++;                                                                      // increment count
     }
-    return faults;
+    return faults;                                                                      // return the number of page faults calculated
 }
 
 /********************************************************************************************************************************************************
-* int hasValue (int size, int data [])
+* int hasValue (int value, int set [], int size)
 * Author: Anton Horvath
 * Date: 30 October 2021
-* Description:  returns the number of page faults encountered during page number replacement of the given data set. Utilizes a least-recently-used
-                strategy to determine which index is replaced. Keeps a counter variable that indicates how recently-accessed a value is
+* Description:  returns the index of a value in a set, -1 if not found
 * Parameters:
 *    size - int - size of the working set
-*    data - int [] - data set we are performing analysis on
+*    value - int - the value we're querying for in the set
+*    set - int [] - set we are searching in
 ********************************************************************************************************************************************************/
 
 int hasValue (int value, int set [], int size) {
-    for (int i = 0; i < size; i++) {
-        if (set[i] == value) { return i; }
+    for (int i = 0; i < size; i++) {                                                    // iterate through each value in the set
+        if (set[i] == value) { return i; }                                              // return index it was found
     }
-    return -1;
+    return -1;                                                                          // return -1 for couldn't find
 }
+
+/********************************************************************************************************************************************************
+* int getMinimumIndex (int counters [], int size)
+* Author: Anton Horvath
+* Date: 30 October 2021
+* Description:  returns the smallest number in a given set, used to find which count value is the smallest (representing oldest page number)
+* Parameters:
+*    counters - int [] - counter set we are checking for smallest value
+*    size - int - size of the set
+********************************************************************************************************************************************************/
 
 int getMinimumIndex (int counters [], int size) {
-    int minimum = counters[0];
-    int minimumIndex = 0;
-    for (int i = 1; i < size; i++) {
-        if (counters[i] < minimum) {
-            minimum = counters[i];
-            minimumIndex = i;
+    int minimum = counters[0];                                                          // sets default minimum to be the first index in the set
+    int minimumIndex = 0;                                                               // capture index of minimum value
+    for (int i = 1; i < size; i++) {                                                    // iterate through all values in the set
+        if (counters[i] < minimum) {                                                    // detect if the value is less than the current minimum value
+            minimum = counters[i];                                                      // set minimum value to be the value we iterated over
+            minimumIndex = i;                                                           // set the index to be the minimum value's index
         }
     }
-    return minimumIndex;
+    return minimumIndex;                                                                // return the minimum value's index
 }
+
+/********************************************************************************************************************************************************
+* int FIFO (int counters [], int size)
+* Author: Anton Horvath
+* Date: 30 October 2021
+* Description:  returns the number of page faults encountered during page number replacement of the given data set. Utilizes a first-in-first-out
+                strategy to determine which index is replaced. Uses index-based age determination for FIFO
+* Parameters:
+*    data - int* - data set for the given experiment
+*    size - int - size of the set
+********************************************************************************************************************************************************/
 
 int FIFO(int size, int *data) {
-    int faults = 0;
-    int set[size];
-    for (int i = 0; i < 1000; i++) {
-        if (i < size) { set[i] = data[i]; }
-        else if (hasValue(data[i], set, size) == -1) {
-            replace(0, set, size, data[i]);
-            faults++;
+    int faults = 0;                                                                     // set the default number of faults to 0
+    int set[size];                                                                      // allocate space for the working set based on given size
+    for (int i = 0; i < 1000; i++) {                                                    // iterate over all page numbers in set, fitting them into the working set
+        if (i < size) { set[i] = data[i]; }                                             // if working set is still not full, set value at given index
+        else if (hasValue(data[i], set, size) == -1) {                                  // if the value is not present within the working set, shift all
+            replace(0, set, size, data[i]);                                             // values in working set over 1 to the left and attach value to end
+            faults++;                                                                   // increment number of faults found
         }
     }
-    return faults;
+    return faults;                                                                      // return sum of faults encountered during data processing
 }
+
+/********************************************************************************************************************************************************
+* int replace (int startingIndex, int set [], int size, int value)
+* Author: Anton Horvath
+* Date: 30 October 2021
+* Description:  shifts all values of an array over by 1 to the left and attaches the given value to the end, used for index-based FIFO
+* Parameters:
+*    startingIndex - int - index that is to be removed, with everything to the right shifting towards it
+*    set - int [] - current working set
+*    size - int - size of the set
+*    value - int - value getting attached to the end of the set once everything is shifted over one to the left
+********************************************************************************************************************************************************/
 
 void replace(int startingIndex, int set [], int size, int value) {
-    for (int i = startingIndex+1; i < size; i++) {
-        set[i-1] = set[i];
+    for (int i = startingIndex+1; i < size; i++) {                                      // iterate over all values to the right of the index being replaced
+        set[i-1] = set[i];                                                              // set the previous index to be the current index (offset by 1, shift)
     }
-    set[size-1] = value;
+    set[size-1] = value;                                                                // attach given value to end of the set
 }
 
+/********************************************************************************************************************************************************
+* int Clock (int size, int *data)
+* Author: Anton Horvath
+* Date: 30 October 2021
+* Description:  returns the number of page faults encountered during page number replacement of the given data set. Utilizes a clock
+                strategy to determine which index is replaced. Uses FIFO variant in retrieving first 0 use-bit. Uses index-based FIFO
+* Parameters:
+*    data - int* - data set for the given experiment
+*    size - int - size of the set
+********************************************************************************************************************************************************/
+
 int Clock(int size, int *data) {
-    int faults = 0;
-    int set[size];
-    int useBits[size];
-    for (int i = 0; i < 1000; i++) {
-        int value = hasValue(data[i], set, size);
-        int index = 0;
-        if (i < size) { index = i; }
-        else if (value != -1) { index = value; }
-        else { 
-            index = getClockIndex(size, useBits);
-            replace(index, set, size, data[i]);
-            replace(index, useBits, size, 0); 
-            faults++;
-            index = size-1; 
+    int faults = 0;                                                                     // set default number of faults to 0
+    int set[size];                                                                      // the current working set is allocated space
+    int useBits[size];                                                                  // store the use bits in a parallel array alongside working set
+    for (int i = 0; i < 1000; i++) {                                                    // iterate over all page numbers in the data set
+        int value = hasValue(data[i], set, size);                                       // capture if the value is already in the working set
+        int index = 0;                                                                  // set default index value to be 0
+        if (i < size) { index = i; }                                                    // if working set isn't full, the index to be replaced is simply
+        else if (value != -1) { index = value; }                                        // the iterator value, if contained in set already index is where it
+        else {                                                                          // is at
+            index = getClockIndex(size, useBits);                                       // not in the working set, have to find the FIFO first 0 use-bit
+            replace(index, set, size, data[i]);                                         // once the index of first 0 captured, shift working set and attach
+            replace(index, useBits, size, 0);                                           // value to end, do the same for use-bits
+            faults++;                                                                   // increase number of page faults encountered
+            index = size-1;                                                             // index is set to the end
         }
         set[index] = data[i];
-        useBits[index] = value == -1 ? 0 : 1;
-    }
-    return faults;
+        useBits[index] = value == -1 ? 0 : 1;                                           // if the value was referenced, give second-life. Otherwise, set to 0
+    }                                                                                   // if just added
+    return faults;                                                                      // return number of faults encountered
 }
+
+/********************************************************************************************************************************************************
+* int getClockIndex (int size, int *useBits)
+* Author: Anton Horvath
+* Date: 30 October 2021
+* Description:  iterate over the use-bits set and attempt to find the first 0. Since index-based FIFO is being used, we simply start at the beginning and
+                find the first 0, return the index
+* Parameters:
+*    useBits - int* - use-bit set given
+*    size - int - size of the set
+********************************************************************************************************************************************************/
 
 int getClockIndex(int size, int *useBits) {
     int index = -1;
@@ -189,18 +244,30 @@ int getClockIndex(int size, int *useBits) {
     return index;
 }
 
-double normal (double mu, double sigma) { //https://phoxis.org/2013/05/04/generating-random-numbers-from-normal-distribution-in-c/
+/********************************************************************************************************************************************************
+* double normal (double mu, double sigma)
+* Author: Phoxis
+* //https://phoxis.org/2013/05/04/generating-random-numbers-from-normal-distribution-in-c/
+* Modifier: Anton Horvath
+* Date: 30 October 2021
+* Description:  obtain a normally distributed random number with a mean of 10 and standard deviation of 2
+* Parameters:
+*    mu - double - mean of the normal distribution
+*    sigma - double - standard deviation of the distribution
+********************************************************************************************************************************************************/
+
+double normal (double mu, double sigma) { 
   double U1, U2, W, mult;
-  static double X1, X2;
-  static int call = 0;
+  static double X1, X2;                                                                     // scalars generated that can be applied to the std
+  static int call = 0;                                                                      // static flag that indicates a second value is available
  
-  if (call == 1)
+  if (call == 1)                                                                            // flag indicates the second scalar is still available
     {
       call = !call;
-      return (mu + sigma * (double) X2);
+      return (mu + sigma * (double) X2);                                                    // no need to generate two new scalars, simply return second
     }
  
-  do
+  do                                                                                        // generate scalars, part of the Polars method 
     {
       U1 = -1 + ((double) rand () / RAND_MAX) * 2;
       U2 = -1 + ((double) rand () / RAND_MAX) * 2;
@@ -208,11 +275,11 @@ double normal (double mu, double sigma) { //https://phoxis.org/2013/05/04/genera
     }
   while (W >= 1 || W == 0);
  
-  mult = sqrt ((-2 * log (W)) / W);
-  X1 = U1 * mult;
-  X2 = U2 * mult;
+  mult = sqrt ((-2 * log (W)) / W);                                                         // multiplier calculated, scalar against two U values calculated above
+  X1 = U1 * mult;                                                                           // Assign first scalar for standard deviation
+  X2 = U2 * mult;                                                                           // Assign second scalar for standard deviation
  
-  call = !call;
+  call = !call;                                                                             // indicate that generation is/is not needed
  
-  return (mu + sigma * (double) X1);
+  return (mu + sigma * (double) X1);                                                        // return the first normally distributed value
 }
